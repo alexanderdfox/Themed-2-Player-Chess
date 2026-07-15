@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Way, the Truth, and the Life • Jesus Chess</title>
+<style>
+  body {
+	font-family: 'Georgia', serif;
+	background: radial-gradient(circle, #1a1a2e 0%, #0d0d1a 100%);
+	color: #eee;
+	text-align: center;
+	margin: 0;
+	padding: 20px;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+  }
+  h1 { 
+	margin: 10px 0 5px; 
+	color: #ffd700; 
+	text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+	font-size: 2.5em;
+  }
+  .subtitle { 
+	color: #a0a0ff; 
+	margin-bottom: 20px; 
+	font-style: italic;
+	font-size: 1.1em;
+  }
+  #game-wrapper {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 20px;
+  }
+  #board-container {
+	background: #111;
+	padding: 15px;
+	border-radius: 16px;
+	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.15);
+  }
+  svg {
+	background: #222;
+	border: 8px solid #5c2c16;
+	border-radius: 8px;
+	user-select: none;
+  }
+  .square {
+	cursor: pointer;
+	transition: fill 0.2s;
+  }
+  .square:hover {
+	filter: brightness(1.15);
+  }
+  .square-selected {
+	stroke: #ffd700 !important;
+	stroke-width: 3px;
+	paint-order: stroke fill;
+  }
+  /* Crucial Fix: prevents pieces from blocking mouse clicks on the squares underneath */
+  .piece {
+	pointer-events: none; 
+  }
+  .dashboard {
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid rgba(255, 215, 0, 0.2);
+	border-radius: 10px;
+	padding: 15px 30px;
+	min-width: 300px;
+	box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.05);
+  }
+  .status-turn {
+	font-size: 1.3em;
+	font-weight: bold;
+	color: #ffd700;
+	margin-bottom: 8px;
+  }
+  .info {
+	font-size: 0.95em;
+	color: #bbb;
+	line-height: 1.6;
+  }
+  .button-group {
+	margin-top: 15px;
+  }
+  button {
+	margin: 5px;
+	padding: 12px 24px;
+	font-size: 0.95em;
+	font-family: 'Georgia', serif;
+	background: linear-gradient(135deg, #5c2c16 0%, #3d1d0e 100%);
+	color: gold;
+	border: 1px solid rgba(255, 215, 0, 0.3);
+	border-radius: 6px;
+	cursor: pointer;
+	font-weight: bold;
+	box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+	transition: all 0.2s;
+  }
+  button:hover {
+	background: linear-gradient(135deg, #74391d 0%, #4a2311 100%);
+	box-shadow: 0 6px 12px rgba(255, 215, 0, 0.15);
+	transform: translateY(-1px);
+  }
+  button:active {
+	transform: translateY(1px);
+  }
+</style>
+</head>
+<body>
+
+  <h1>The Way, the Truth, and the Life</h1>
+  <p class="subtitle">Jesus Christ Themed Chess</p>
+
+  <div id="game-wrapper">
+	<div class="dashboard">
+	  <div id="turn-display" class="status-turn">Light's Turn (Jesus)</div>
+	  <div class="info">
+		<strong>White (Light):</strong> Jesus & Followers | <strong>Black (World):</strong> Obstacles & Trials
+	  </div>
+	</div>
+
+	<div id="board-container"></div>
+
+	<div class="button-group">
+	  <button onclick="newGame()">New Game</button>
+	  <button onclick="flipBoard()">Flip Board</button>
+	</div>
+  </div>
+
+<script>
+// =============== SVG CHESS PIECES ===============
+const svgs = {
+  K: `<svg viewBox="0 0 100 100" width="45" height="45"><circle cx="50" cy="35" r="18" fill="#ffd700"/><rect x="35" y="55" width="30" height="35" rx="5" fill="#ffd700"/><text x="50" y="78" font-size="25" text-anchor="middle" fill="#1a1a2e">✝</text></svg>`, // Jesus
+  Q: `<svg viewBox="0 0 100 100" width="45" height="45"><circle cx="50" cy="32" r="20" fill="#c9a227"/><path d="M30 65 Q50 45 70 65" fill="none" stroke="#c9a227" stroke-width="12"/><text x="50" y="82" font-size="28" text-anchor="middle" fill="#1a1a2e">♀</text></svg>`, // Mary Magdalene / Church
+  B: `<svg viewBox="0 0 100 100" width="45" height="45"><rect x="30" y="30" width="40" height="50" rx="8" fill="#9b6f3f"/><text x="50" y="65" font-size="32" text-anchor="middle" fill="#eee">📖</text></svg>`, // Apostle
+  N: `<svg viewBox="0 0 100 100" width="45" height="45"><path d="M25 70 Q40 40 65 55 Q75 80 35 80" fill="#8b5a2b"/><text x="48" y="72" font-size="28" fill="#eee">🐟</text></svg>`, // Fisherman
+  R: `<svg viewBox="0 0 100 100" width="45" height="45"><rect x="25" y="35" width="50" height="45" rx="5" fill="#654321"/><rect x="32" y="25" width="36" height="18" fill="#8b5a2b"/><text x="50" y="78" font-size="22" text-anchor="middle" fill="#ddd">⛪</text></svg>`, // Empty Tomb
+  P: `<svg viewBox="0 0 100 100" width="38" height="38"><circle cx="50" cy="45" r="18" fill="#d4a017"/><text x="50" y="68" font-size="28" text-anchor="middle" fill="#222">🙏</text></svg>` // Disciple
+};
+
+// Black versions (darker)
+const blackSvgs = {
+  k: svgs.K.replace(/#ffd700/g, '#555').replace(/#1a1a2e/g, '#ddd'),
+  q: svgs.Q.replace(/#c9a227/g, '#555'),
+  b: svgs.B.replace(/#9b6f3f/g, '#555').replace(/#eee/g, '#ddd'),
+  n: svgs.N.replace(/#8b5a2b/g, '#555').replace(/#eee/g, '#ddd'),
+  r: svgs.R.replace(/#654321/g, '#444').replace(/#8b5a2b/g, '#555').replace(/#ddd/g, '#aaa'),
+  p: svgs.P.replace(/#d4a017/g, '#666').replace(/#222/g, '#ddd')
+};
+
+let board = [];
+let selected = null; // { rank, file }
+let currentPlayer = 'w';
+let flipped = false;
+let gameOver = false;
+
+const container = document.getElementById('board-container');
+const turnDisplay = document.getElementById('turn-display');
+
+// Initialize a standard board setup
+function initBoardState() {
+  board = [
+	['r','n','b','q','k','b','n','r'],
+	['p','p','p','p','p','p','p','p'],
+	[null,null,null,null,null,null,null,null],
+	[null,null,null,null,null,null,null,null],
+	[null,null,null,null,null,null,null,null],
+	[null,null,null,null,null,null,null,null],
+	['P','P','P','P','P','P','P','P'],
+	['R','N','B','Q','K','B','N','R']
+  ];
+  currentPlayer = 'w';
+  selected = null;
+  gameOver = false;
+}
+
+// Generate valid destination coordinates for high-lighting
+function getValidMoves(fromR, fromF) {
+  const moves = [];
+  if (gameOver) return moves;
+  for (let r = 0; r < 8; r++) {
+	for (let f = 0; f < 8; f++) {
+	  if (isValidChessMove(fromR, fromF, r, f)) {
+		moves.push({ rank: r, file: f });
+	  }
+	}
+  }
+  return moves;
+}
+
+// Comprehensive Chess Move Validation Logic
+function isValidChessMove(fromR, fromF, toR, toF) {
+  if (fromR === toR && fromF === toF) return false;
+  
+  const piece = board[fromR][fromF];
+  if (!piece) return false;
+
+  // Check turn restriction
+  const isWhitePiece = piece === piece.toUpperCase();
+  if (isWhitePiece && currentPlayer !== 'w') return false;
+  if (!isWhitePiece && currentPlayer !== 'b') return false;
+
+  const target = board[toR][toF];
+  if (target) {
+	const isTargetWhite = target === target.toUpperCase();
+	if (isWhitePiece === isTargetWhite) return false; // Prevent capturing your own pieces
+  }
+
+  const dr = toR - fromR;
+  const df = toF - fromF;
+  const absDr = Math.abs(dr);
+  const absDf = Math.abs(df);
+  const type = piece.toUpperCase();
+
+  // PAWN MOVEMENT RULES
+  if (type === 'P') {
+	const dir = isWhitePiece ? -1 : 1; // White moves up (-1), Black moves down (+1)
+	const startRank = isWhitePiece ? 6 : 1;
+
+	// Single step forward
+	if (df === 0 && dr === dir && !target) {
+	  return true;
+	}
+	// Double step from starting position
+	if (df === 0 && fromR === startRank && dr === 2 * dir) {
+	  const stepOver = fromR + dir;
+	  if (!board[stepOver][fromF] && !target) {
+		return true;
+	  }
+	}
+	// Diagonal capture
+	if (absDf === 1 && dr === dir && target) {
+	  return true;
+	}
+	return false;
+  }
+
+  // KNIGHT MOVEMENT RULES
+  if (type === 'N') {
+	return (absDr === 2 && absDf === 1) || (absDr === 1 && absDf === 2);
+  }
+
+  // BISHOP MOVEMENT RULES
+  if (type === 'B') {
+	if (absDr !== absDf) return false;
+	return isPathClear(fromR, fromF, toR, toF);
+  }
+
+  // ROOK MOVEMENT RULES
+  if (type === 'R') {
+	if (dr !== 0 && df !== 0) return false;
+	return isPathClear(fromR, fromF, toR, toF);
+  }
+
+  // QUEEN MOVEMENT RULES
+  if (type === 'Q') {
+	if (absDr !== absDf && dr !== 0 && df !== 0) return false;
+	return isPathClear(fromR, fromF, toR, toF);
+  }
+
+  // KING MOVEMENT RULES
+  if (type === 'K') {
+	return absDr <= 1 && absDf <= 1;
+  }
+
+  return false;
+}
+
+// Utility function to check clear line of sight along straight/diagonals
+function isPathClear(fromR, fromF, toR, toF) {
+  const stepR = Math.sign(toR - fromR);
+  const stepF = Math.sign(toF - fromF);
+  let r = fromR + stepR;
+  let f = fromF + stepF;
+  while (r !== toR || f !== toF) {
+	if (board[r][f] !== null) return false;
+	r += stepR;
+	f += stepF;
+  }
+  return true;
+}
+
+// Render the entire SVG board
+function createBoard() {
+  let svgHTML = `<svg width="560" height="560" viewBox="0 0 560 560" id="chessboard">`;
+  
+  const validMoves = selected ? getValidMoves(selected.rank, selected.file) : [];
+
+  // 1. Draw Board Squares
+  for (let displayRank = 0; displayRank < 8; displayRank++) {
+	for (let displayFile = 0; displayFile < 8; displayFile++) {
+	  // Resolve standard logical indexes based on visual flip status
+	  const r = flipped ? 7 - displayRank : displayRank;
+	  const f = flipped ? 7 - displayFile : displayFile;
+
+	  const x = displayFile * 70;
+	  const y = displayRank * 70;
+	  const isLight = (displayRank + displayFile) % 2 === 0;
+	  const squareColor = isLight ? '#f0d9b5' : '#b58863';
+	  
+	  const isSelected = selected && selected.rank === r && selected.file === f;
+	  const classNames = `square ${isSelected ? 'square-selected' : ''}`;
+
+	  svgHTML += `
+		<rect x="${x}" y="${y}" width="70" height="70" fill="${squareColor}" 
+			  class="${classNames}" data-rank="${r}" data-file="${f}"/>
+	  `;
+	}
+  }
+
+  // 2. Draw Translucent Valid Target Move Highlights
+  validMoves.forEach(mv => {
+	const displayRank = flipped ? 7 - mv.rank : mv.rank;
+	const displayFile = flipped ? 7 - mv.file : mv.file;
+	const cx = displayFile * 70 + 35;
+	const cy = displayRank * 70 + 35;
+	
+	// Check if space holds an opponent's piece (draw ring instead of dot)
+	const isCapture = board[mv.rank][mv.file] !== null;
+	if (isCapture) {
+	  svgHTML += `<circle cx="${cx}" cy="${cy}" r="28" fill="none" stroke="rgba(46, 204, 113, 0.7)" stroke-width="5" style="pointer-events:none;"/>`;
+	} else {
+	  svgHTML += `<circle cx="${cx}" cy="${cy}" r="11" fill="rgba(46, 204, 113, 0.75)" style="pointer-events:none;"/>`;
+	}
+  });
+
+  // 3. Render Chess Pieces
+  for (let r = 0; r < 8; r++) {
+	for (let f = 0; f < 8; f++) {
+	  const piece = board[r][f];
+	  if (!piece) continue;
+	  
+	  const displayRank = flipped ? 7 - r : r;
+	  const displayFile = flipped ? 7 - f : f;
+	  
+	  const x = displayFile * 70 + 12;
+	  const y = displayRank * 70 + 12;
+	  
+	  const svgContent = piece === piece.toUpperCase() ? svgs[piece] : blackSvgs[piece];
+	  
+	  // Class .piece has pointer-events: none; so clicks go straight to rect beneath
+	  svgHTML += `
+		<g class="piece" transform="translate(${x},${y})">
+		  ${svgContent}
+		</g>`;
+	}
+  }
+  
+  svgHTML += `</svg>`;
+  container.innerHTML = svgHTML;
+
+  // Add click handlers to board squares
+  document.querySelectorAll('.square').forEach(square => {
+	square.addEventListener('click', handleSquareClick);
+  });
+
+  updateStatusHUD();
+}
+
+// Master input coordinate click handler
+function handleSquareClick(e) {
+  if (gameOver) return;
+
+  const clickRank = parseInt(e.currentTarget.dataset.rank);
+  const clickFile = parseInt(e.currentTarget.dataset.file);
+  const piece = board[clickRank][clickFile];
+
+  // Case A: Select / Switch selection to one of your own active pieces
+  if (piece && ((currentPlayer === 'w' && piece === piece.toUpperCase()) || 
+				(currentPlayer === 'b' && piece === piece.toLowerCase()))) {
+	selected = { rank: clickRank, file: clickFile };
+	createBoard();
+	return;
+  }
+
+  // Case B: Make a valid move/capture if a piece was previously selected
+  if (selected) {
+	if (isValidChessMove(selected.rank, selected.file, clickRank, clickFile)) {
+	  const movingPiece = board[selected.rank][selected.file];
+	  const capturedPiece = board[clickRank][clickFile];
+
+	  // Move piece logic
+	  board[clickRank][clickFile] = movingPiece;
+	  board[selected.rank][selected.file] = null;
+	  
+	  // Pawn Promotion logic (Pawn reaches far end promoted automatically to Queen)
+	  if (movingPiece === 'P' && clickRank === 0) board[clickRank][clickFile] = 'Q';
+	  if (movingPiece === 'p' && clickRank === 7) board[clickRank][clickFile] = 'q';
+
+	  // Check win condition (if King is taken, end game)
+	  if (capturedPiece && capturedPiece.toUpperCase() === 'K') {
+		gameOver = true;
+		currentPlayer = currentPlayer === 'w' ? 'Light Wins!' : 'World Wins!';
+	  } else {
+		// Toggle turn players
+		currentPlayer = currentPlayer === 'w' ? 'b' : 'w';
+	  }
+	}
+	selected = null;
+	createBoard();
+  }
+}
+
+// Handle HUD visual labels
+function updateStatusHUD() {
+  if (gameOver) {
+	if (currentPlayer === 'Light Wins!') {
+	  turnDisplay.innerHTML = `🎉 Glory! Light Wins! ✝`;
+	  turnDisplay.style.color = "#ffd700";
+	} else {
+	  turnDisplay.innerHTML = `⏳ Game Over: The World Prevails`;
+	  turnDisplay.style.color = "#ff6b6b";
+	}
+  } else {
+	if (currentPlayer === 'w') {
+	  turnDisplay.innerHTML = `🌟 Light's Turn (Jesus)`;
+	  turnDisplay.style.color = "#ffd700";
+	} else {
+	  turnDisplay.innerHTML = `🌑 World's Turn`;
+	  turnDisplay.style.color = "#a0a0ff";
+	}
+  }
+}
+
+function newGame() {
+  initBoardState();
+  createBoard();
+}
+
+function flipBoard() {
+  flipped = !flipped;
+  createBoard();
+}
+
+// Kickstart game on load
+newGame();
+</script>
+</body>
+</html>
